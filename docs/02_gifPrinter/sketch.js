@@ -34,6 +34,12 @@ let printCanvas; // the canvas of the printable object see https://p5js.org/refe
 let oldPaperChoice = -1;
 let oldDpi = -1;
 
+let gifFile;
+
+function preload() {
+  gifFile = loadImage("../gifs/perfectBlueRedNoodleLoop.gif");
+}
+
 function setup() {
   pixelDensity(1); //https://p5js.org/reference/#/p5/pixelDensity
   textAlign(CENTER, CENTER); //https://p5js.org/reference/#/p5/textAlign
@@ -72,6 +78,8 @@ function setup() {
   // Create Layout GUI
   gui = createGui('Press g to hide or show me, all measurements are in pixels, press s to save a png');
   gui.addGlobals('backgroundColour', 'gridLineColour', 'gridLineWidth', 'gridLineSeparation', 'paperChoice', 'borderSize', 'dpi');
+
+  gifFile.pause();
 }
 
 function draw() {
@@ -85,6 +93,11 @@ function draw() {
 
   //https://p5js.org/reference/#/p5/createGraphics
   image(printCanvas, 0, 0, windowWidth, windowHeight);
+
+  for (let i = 0; i < gifFile.numFrames(); i++) {
+    gifFile.setFrame(i);
+    image(gifFile, i * 30, 0, 100, 100);
+  }
 
   //saving old variables so that I can change the size of the canvas if either dpi or paperChoice are changed
   oldDpi = dpi;
@@ -106,6 +119,9 @@ function keyPressed() {
       //thanks https://momentjs.com/
       let niceFileName = moment().format("YYYY_MM_DD_HH_mm_ss") + "_.png";
       save(printCanvas, niceFileName);
+      break;
+    case 'p': //for please work
+      saveGif();
       break;
   }
 }
