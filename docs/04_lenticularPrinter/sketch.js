@@ -12,20 +12,7 @@ let verticalRatio;
 var gui;
 var guiVisible;
 var backgroundColour;
-var gridLineColour;
-var gridLineWidth;
-var gridLineWidthMin;
-var gridLineWidthMax;
-var gridLineWidthStep;
-var gridLineSeparation;
-var gridLineSeparationMin;
-var gridLineSeparationMax;
-var gridLineSeparationStep;
 var paperChoice;
-var borderSize;
-var borderSizeMin;
-var borderSizeMax;
-var borderSizeStep;
 var dpi; //the dpi of the printer
 
 //let from now on thank you, TODO: fix strange let/var bug for p5.gui above
@@ -34,57 +21,99 @@ let printCanvas; // the canvas of the printable object see https://p5js.org/refe
 let oldPaperChoice = -1;
 let oldDpi = -1;
 
+let imgFileFromDrop;
+
+let gifP5ImageFromImgFileFromDrop;
+
 function setup() {
   pixelDensity(1); //https://p5js.org/reference/#/p5/pixelDensity
   textAlign(CENTER, CENTER); //https://p5js.org/reference/#/p5/textAlign
 
   canvas = createCanvas(windowWidth, windowHeight);
-  canvas.position(0, 0);
-  canvas.style('z-index', '-1');
-  canvas.style('width', '100%');
-  canvas.style('height', '100%');
+  // canvas.position(0, 0);
+  // canvas.style("z-index", "-1");
+  // canvas.style("width", "100%");
+  // canvas.style("height", "100%");
   /* via https://github.com/CodingTrain/website/blob/master/Q_and_A/Q_6_p5_background/sketch.js and https://www.youtube.com/watch?v=OIfEHD3KqCg */
   //https://github.com/processing/p5.js/wiki/Beyond-the-canvas
 
   //GUI setup below
   guiVisible = true;
   backgroundColour = [255, 255, 255]; // white
-  gridLineColour = [0, 0, 0]; //black
-  gridLineWidth = 2; //TODO: fix drawing bug, p5.js seems to be unable to draw 1 pixel lines!
-  gridLineWidthMin = 2;
-  gridLineWidthMax = 42;
-  gridLineWidthStep = 1;
-
-  gridLineSeparation = 100;
-  gridLineSeparationMin = 10;
-  gridLineSeparationMax = 1000;
-  gridLineSeparationStep = 10;
 
   paperChoice = ["A4_Portrait", "A4_Landscape", "A3_Portrait", "A3_Landscape"];
 
-  borderSize = 0;
-  borderSizeMin = 0;
-  borderSizeMax = 100;
-  borderSizeStep = 1;
-
-  dpi = ['300dpi', '600dpi'];
+  dpi = ["300dpi", "600dpi"];
 
   // Create Layout GUI
-  gui = createGui('Press g to hide or show me, all measurements are in pixels, press s to save a png');
-  gui.addGlobals('backgroundColour', 'gridLineColour', 'gridLineWidth', 'gridLineSeparation', 'paperChoice', 'borderSize', 'dpi');
+  gui = createGui(
+    "Press g to hide or show me, all measurements are in pixels, press s to save a png"
+  );
+  gui.addGlobals(
+    "backgroundColour",
+    "paperChoice",
+    "dpi"
+  );
+
+  //https://p5js.org/reference/#/p5.Element/drop
+  canvas.drop(gotFile);
+  text('Please drop an animated gif file on me!', 100, 100);
 }
 
 function draw() {
-  if ((oldDpi != dpi) || (oldPaperChoice != paperChoice)) {
+  if (oldDpi != dpi || oldPaperChoice != paperChoice) {
     createPrintCanvas();
   }
 
-  drawGrid();
+  if (imgFileFromDrop) {
+    if (gifP5ImageFromImgFileFromDrop) {
+      // console.log("gifP5ImageFromImgFileFromDrop is NOT null, as it exists now!");
+    } else {
+      // console.log("gifFileFromImgFileFromDrop is null");
+      //it's null and it hasn't been made, let's try making it
+      // https://p5js.org/reference/#/p5/loadImage
+      // - critical part is "You can also pass in a string of a base64 encoded image as an alternative to the file path. Remember to add "data: image / png; base64, " in front of the string."
+      gifP5ImageFromImgFileFromDrop = loadImage(imgFileFromDrop.elt.src, successImgToImage, failImgToImage);
+    }
+  } else {
+    //wait for a file to be dropped...
+  }
 
-  //printCanvas.circle(printCanvas.width / 2, printCanvas.height / 2, 100); // draw a circle in the centre at 100 radius
+  if (imgFileFromDrop && gifP5ImageFromImgFileFromDrop) {
+    //then a img has been dropped and a p5.image has been made from said img (img means dom element, image means p5.image, which is what we need to be able to look at the number of frames and the like)
+    //so a file has been dropped and it exists and has been loaded, but still only a dom element
+    // clear all
+    //https://p5js.org/reference/#/p5/createGraphics
+    //https://p5js.org/examples/structure-create-graphics.html
+    printCanvas.clear();
+    printCanvas.background(backgroundColour);
 
-  //https://p5js.org/reference/#/p5/createGraphics
-  image(printCanvas, 0, 0, windowWidth, windowHeight);
+    gifP5ImageFromImgFileFromDrop.pause();
+
+    //lets start drawing the grid of frames from the topleft
+    let currentFrameTopLeftX = 0;
+    let currentFrameTopLeftY = 0;
+    //safe to assume that all the frames of animation have the same width and height
+    let currentFrameWidth = gifP5ImageFromImgFileFromDrop.width;
+    let currentFrameHeight = gifP5ImageFromImgFileFromDrop.height;
+
+    for (let i = 0; i < gifP5ImageFromImgFileFromDrop.numFrames(); i++) {
+      gifP5ImageFromImgFileFromDrop.setFrame(i);
+      printCanvas.image(gifP5ImageFromImgFileFromDrop, currentFrameTopLeftX, currentFrameTopLeftY, currentFrameWidth, currentFrameHeight);
+      //add the width to the x position to keep moving right
+      currentFrameTopLeftX += currentFrameWidth;
+
+      if ((currentFrameTopLeftX + currentFrameWidth) > printCanvas.width) {
+        //if the next draw would overlap the edge of the canvas, then rest the currentFrameTopLeftX to 0
+        currentFrameTopLeftX = 0;
+        //and increment the currentFrameTopLeftY by currentFrameHeight
+        currentFrameTopLeftY += currentFrameHeight;
+      }
+    }
+
+    //https://p5js.org/reference/#/p5/createGraphics
+    image(printCanvas, 0, 0, windowWidth, windowHeight);
+  }
 
   //saving old variables so that I can change the size of the canvas if either dpi or paperChoice are changed
   oldDpi = dpi;
@@ -94,7 +123,7 @@ function draw() {
 // check for keyboard events
 function keyPressed() {
   switch (key) {
-    case 'g':
+    case "g":
       guiVisible = !guiVisible;
       if (guiVisible) {
         gui.show();
@@ -102,7 +131,7 @@ function keyPressed() {
         gui.hide();
       }
       break;
-    case 's':
+    case "s":
       //thanks https://momentjs.com/
       let niceFileName =
         moment().format("YYYY_MM_DD_HH_mm_ss") +
@@ -112,6 +141,9 @@ function keyPressed() {
         dpi +
         "_.png";
       save(printCanvas, niceFileName);
+      break;
+    case "p": //for please work
+      saveGif();
       break;
   }
 }
@@ -125,9 +157,9 @@ function windowResized() {
 function ngon(n, x, y, d) {
   beginShape();
   for (var i = 0; i < n; i++) {
-    var angle = TWO_PI / n * i;
-    var px = x + sin(angle) * d / 2;
-    var py = y - cos(angle) * d / 2;
+    var angle = (TWO_PI / n) * i;
+    var px = x + (sin(angle) * d) / 2;
+    var py = y - (cos(angle) * d) / 2;
     vertex(px, py);
   }
   endShape(CLOSE);
@@ -137,10 +169,10 @@ function ngon(n, x, y, d) {
 function star(n, x, y, d1, d2) {
   beginShape();
   for (var i = 0; i < 2 * n; i++) {
-    var d = (i % 2 === 1) ? d1 : d2;
-    var angle = PI / n * i;
-    var px = x + sin(angle) * d / 2;
-    var py = y - cos(angle) * d / 2;
+    var d = i % 2 === 1 ? d1 : d2;
+    var angle = (PI / n) * i;
+    var px = x + (sin(angle) * d) / 2;
+    var py = y - (cos(angle) * d) / 2;
     vertex(px, py);
   }
   endShape(CLOSE);
@@ -156,10 +188,10 @@ function createPrintCanvas() {
   //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
   switch (dpi) {
     // one inch is 25.4mm see https://en.wikipedia.org/wiki/Inch
-    case '300dpi':
+    case "300dpi":
       newPixelsPerMM = 300 * 25.4;
       break;
-    case '600dpi':
+    case "600dpi":
       newPixelsPerMM = 600 * 25.4;
       break;
     default:
@@ -169,22 +201,22 @@ function createPrintCanvas() {
 
   //https://en.wikipedia.org/wiki/Paper_size#A_series
   switch (paperChoice) {
-    case 'A4_Portrait':
+    case "A4_Portrait":
       //A4 portrait is 210mm wide by 297mm high
       newPrintCanvasWidth = 210 * newPixelsPerMM;
       newPrintCanvasHeight = 297 * newPixelsPerMM;
       break;
-    case 'A4_Landscape':
+    case "A4_Landscape":
       //A4 landscape is 297mm wide by 210mm high
       newPrintCanvasWidth = 297 * newPixelsPerMM;
       newPrintCanvasHeight = 210 * newPixelsPerMM;
       break;
-    case 'A3_Portrait':
+    case "A3_Portrait":
       //A3 portrait is 297mm wide by 420mm high
       newPrintCanvasWidth = 297 * newPixelsPerMM;
       newPrintCanvasHeight = 420 * newPixelsPerMM;
       break;
-    case 'A3_Landscape':
+    case "A3_Landscape":
       //A3 landscape is 420mm wide by 297mm high
       newPrintCanvasWidth = 420 * newPixelsPerMM;
       newPrintCanvasHeight = 297 * newPixelsPerMM;
@@ -193,55 +225,38 @@ function createPrintCanvas() {
       console.log(`Unknown paperChoice ${paperChoice} in createPrintCanvas.`);
   }
 
-  console.log(`About to create a new printCanvas of ${newPrintCanvasWidth} pixels wide by ${newPrintCanvasHeight} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`);
+  console.log(
+    `About to create a new printCanvas of ${newPrintCanvasWidth} pixels wide by ${newPrintCanvasHeight} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`
+  );
 
   let scaleFactor = 1000;
 
   newPrintCanvasWidth /= scaleFactor; //scale down by scaleFactor
   newPrintCanvasHeight /= scaleFactor;
 
-  console.log(`Scaled down by ${scaleFactor} to a new printCanvas of ${int(newPrintCanvasWidth)} pixels wide by ${int(newPrintCanvasHeight)} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`);
+  console.log(
+    `Scaled down by ${scaleFactor} to a new printCanvas of ${int(
+      newPrintCanvasWidth
+    )} pixels wide by ${int(
+      newPrintCanvasHeight
+    )} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`
+  );
 
-  printCanvas = createGraphics(int(newPrintCanvasWidth), int(newPrintCanvasHeight));
+  printCanvas = createGraphics(
+    int(newPrintCanvasWidth),
+    int(newPrintCanvasHeight)
+  );
   printCanvas.pixelDensity(1); //https://p5js.org/reference/#/p5/pixelDensity
 }
 
-function drawGrid() {
-  //console.log(`printCanvas is ${printCanvas.width} pixels wide by ${printCanvas.height} pixels high.`);
+function gotFile(file) {
+  imgFileFromDrop = createImg(file.data, '').hide();
+}
 
-  // clear all
-  //https://p5js.org/reference/#/p5/createGraphics
-  //https://p5js.org/examples/structure-create-graphics.html
-  printCanvas.clear();
-  printCanvas.background(backgroundColour);
+function successImgToImage() {
+  console.log("Success img to p5.image!");
+}
 
-  // set fill style
-  printCanvas.noFill();
-
-  // set stroke style
-  //https://p5js.org/reference/#/p5/stroke
-  printCanvas.stroke(gridLineColour);
-  printCanvas.strokeWeight(gridLineWidth);
-  //https://p5js.org/reference/#/p5/strokeCap
-  printCanvas.strokeCap(SQUARE);
-
-  //lets do horizontals first
-  let startGridLineX = borderSize;
-  let endGridLineX = printCanvas.width - borderSize;
-  let gridLineY = borderSize;
-
-  while (gridLineY < (printCanvas.height - borderSize)) {
-    printCanvas.line(startGridLineX, gridLineY, endGridLineX, gridLineY);
-    gridLineY += gridLineSeparation;
-  }
-
-  //now verticals
-  let startGridLineY = borderSize;
-  let endGridLineY = printCanvas.height - borderSize;
-  let gridLineX = borderSize;
-
-  while (gridLineX < (printCanvas.width - borderSize)) {
-    printCanvas.line(gridLineX, startGridLineY, gridLineX, endGridLineY);
-    gridLineX += gridLineSeparation;
-  }
+function failImgToImage() {
+  console.log("Fail img to p5.image!");
 }
