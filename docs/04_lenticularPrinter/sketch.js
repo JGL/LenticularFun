@@ -49,15 +49,11 @@ function setup() {
   gui = createGui(
     "Press g to hide or show me, all measurements are in pixels, press s to save a png"
   );
-  gui.addGlobals(
-    "backgroundColour",
-    "paperChoice",
-    "dpi"
-  );
+  gui.addGlobals("backgroundColour", "paperChoice", "dpi");
 
   //https://p5js.org/reference/#/p5.Element/drop
   canvas.drop(gotFile);
-  text('Please drop an animated gif file on me!', 100, 100);
+  text("Please drop an animated gif file on me!", 100, 100);
 }
 
 function draw() {
@@ -70,49 +66,105 @@ function draw() {
       // console.log("gifP5ImageFromImgFileFromDrop is NOT null, as it exists now!");
     } else {
       // console.log("gifFileFromImgFileFromDrop is null");
+      //so a file has been dropped and it exists and has been loaded, but still only a dom element, we need a p5.Image object in order to be able to use it properly
       //it's null and it hasn't been made, let's try making it
       // https://p5js.org/reference/#/p5/loadImage
       // - critical part is "You can also pass in a string of a base64 encoded image as an alternative to the file path. Remember to add "data: image / png; base64, " in front of the string."
-      gifP5ImageFromImgFileFromDrop = loadImage(imgFileFromDrop.elt.src, successImgToImage, failImgToImage);
+      gifP5ImageFromImgFileFromDrop = loadImage(
+        imgFileFromDrop.elt.src,
+        successImgToImage,
+        failImgToImage
+      );
     }
   } else {
     //wait for a file to be dropped...
   }
 
-  if (imgFileFromDrop && gifP5ImageFromImgFileFromDrop) {
+  if (
+    imgFileFromDrop &&
+    gifP5ImageFromImgFileFromDrop &&
+    gifP5ImageFromImgFileFromDrop.width > 1
+  ) {
     //then a img has been dropped and a p5.image has been made from said img (img means dom element, image means p5.image, which is what we need to be able to look at the number of frames and the like)
-    //so a file has been dropped and it exists and has been loaded, but still only a dom element
-    // clear all
-    //https://p5js.org/reference/#/p5/createGraphics
-    //https://p5js.org/examples/structure-create-graphics.html
+    // we also need this check: gifP5ImageFromImgFileFromDrop.width > 1 to make sure the image has actually been loaded
     printCanvas.clear();
     printCanvas.background(backgroundColour);
 
     gifP5ImageFromImgFileFromDrop.pause();
 
-    //lets start drawing the grid of frames from the topleft
-    let currentFrameTopLeftX = 0;
-    let currentFrameTopLeftY = 0;
     //safe to assume that all the frames of animation have the same width and height
-    let currentFrameWidth = gifP5ImageFromImgFileFromDrop.width;
-    let currentFrameHeight = gifP5ImageFromImgFileFromDrop.height;
+    let gifFrameWidth = gifP5ImageFromImgFileFromDrop.width;
+    let gifFrameHeight = gifP5ImageFromImgFileFromDrop.height;
 
-    for (let i = 0; i < gifP5ImageFromImgFileFromDrop.numFrames(); i++) {
-      gifP5ImageFromImgFileFromDrop.setFrame(i);
-      printCanvas.image(gifP5ImageFromImgFileFromDrop, currentFrameTopLeftX, currentFrameTopLeftY, currentFrameWidth, currentFrameHeight);
-      //add the width to the x position to keep moving right
-      currentFrameTopLeftX += currentFrameWidth;
+    // let lpi = 20; //hard coding 20 lpi at the moment
+    // one inch is 25.4mm see https://en.wikipedia.org/wiki/Inch
+    let startFrame = 0;
+    let totalFrames = gifP5ImageFromImgFileFromDrop.numFrames();
 
-      if ((currentFrameTopLeftX + currentFrameWidth) > printCanvas.width) {
-        //if the next draw would overlap the edge of the canvas, then rest the currentFrameTopLeftX to 0
-        currentFrameTopLeftX = 0;
-        //and increment the currentFrameTopLeftY by currentFrameHeight
-        currentFrameTopLeftY += currentFrameHeight;
+    let numberOfPixelsInGif = gifFrameWidth; //split it into every pixel of the image, max result
+    let gifFramePixelX = 0;
+    let gifFramePixelY = 0;
+    let gifFramePixelWidth = 1; //1 pixel wide
+    let gifFramePixelHeight = gifFrameHeight;
+    let canvasX = 0;
+    let canvasY = 0;
+    let canvasScaledGifPixelWidth = printCanvas.width / numberOfPixelsInGif;
+    let canvasScaledGifPixelHeight = printCanvas.height;
+    let canvasScaledFrameWidth = canvasScaledGifPixelWidth / totalFrames; //TODO: change to be affected by LPI
+    let canvasScaledFrameHeight = printCanvas.height; //TODO: change to be affected by LPI
+
+    let counterForCanvasStartPosition = 0;
+    for (
+      let currentFrame = startFrame;
+      currentFrame < totalFrames;
+      currentFrame++
+    ) {
+      gifP5ImageFromImgFileFromDrop.setFrame(currentFrame);
+
+      for (
+        let currentGifPixelIndex = 0;
+        currentGifPixelIndex < numberOfPixelsInGif;
+        currentGifPixelIndex++
+      ) {
+        //https://p5js.org/reference/#/p5.Image/copy
+        //copy(srcImage, sx, sy, sw, sh, dx, dy, dw, dh)
+        printCanvas.copy(
+          gifP5ImageFromImgFileFromDrop,
+          gifFramePixelX,
+          gifFramePixelY,
+          gifFramePixelWidth,
+          gifFramePixelHeight,
+          canvasX,
+          canvasY,
+          canvasScaledFrameWidth,
+          canvasScaledFrameHeight
+        );
+        gifFramePixelX += gifFramePixelWidth; //move right in the source image, by exactly a pixel
+        canvasX += canvasScaledGifPixelWidth; //move right in the destination canvas, by a scaled pixel
       }
+
+      gifFramePixelX = 0; //reset back to 0 to start from the left again
+      counterForCanvasStartPosition++; //move along with where we are placing content on the canvas
+      canvasX = counterForCanvasStartPosition * canvasScaledFrameWidth;
     }
+
+    // for (let i = 0; i < gifP5ImageFromImgFileFromDrop.numFrames(); i++) {
+    //   gifP5ImageFromImgFileFromDrop.setFrame(i);
+    //   printCanvas.image(gifP5ImageFromImgFileFromDrop, currentFrameTopLeftX, currentFrameTopLeftY, currentFrameWidth, currentFrameHeight);
+    //   //add the width to the x position to keep moving right
+    //   currentFrameTopLeftX += currentFrameWidth;
+
+    //   if ((currentFrameTopLeftX + currentFrameWidth) > printCanvas.width) {
+    //     //if the next draw would overlap the edge of the canvas, then rest the currentFrameTopLeftX to 0
+    //     currentFrameTopLeftX = 0;
+    //     //and increment the currentFrameTopLeftY by currentFrameHeight
+    //     currentFrameTopLeftY += currentFrameHeight;
+    //   }
+    // }
 
     //https://p5js.org/reference/#/p5/createGraphics
     image(printCanvas, 0, 0, windowWidth, windowHeight);
+    noLoop(); //trying to see if this improves performance...
   }
 
   //saving old variables so that I can change the size of the canvas if either dpi or paperChoice are changed
@@ -242,6 +294,8 @@ function createPrintCanvas() {
     )} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`
   );
 
+  //https://p5js.org/reference/#/p5/createGraphics
+  //https://p5js.org/examples/structure-create-graphics.html
   printCanvas = createGraphics(
     int(newPrintCanvasWidth),
     int(newPrintCanvasHeight)
@@ -250,11 +304,12 @@ function createPrintCanvas() {
 }
 
 function gotFile(file) {
-  imgFileFromDrop = createImg(file.data, '').hide();
+  imgFileFromDrop = createImg(file.data, "").hide();
 }
 
 function successImgToImage() {
   console.log("Success img to p5.image!");
+  draw();
 }
 
 function failImgToImage() {
