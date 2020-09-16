@@ -156,11 +156,13 @@ function createPrintCanvas() {
   //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
   switch (dpi) {
     // one inch is 25.4mm see https://en.wikipedia.org/wiki/Inch
-    case '300dpi':
-      newPixelsPerMM = 300 * 25.4;
+    case "300dpi":
+      // used to be newPixelsPerMM = 300 * 25.4; bug!
+      newPixelsPerMM = 300 / 25.4;
       break;
-    case '600dpi':
-      newPixelsPerMM = 600 * 25.4;
+    case "600dpi":
+      // used to be newPixelsPerMM = 600 * 25.4; bug!
+      newPixelsPerMM = 600 / 25.4;
       break;
     default:
       //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
@@ -193,16 +195,10 @@ function createPrintCanvas() {
       console.log(`Unknown paperChoice ${paperChoice} in createPrintCanvas.`);
   }
 
-  console.log(`About to create a new printCanvas of ${newPrintCanvasWidth} pixels wide by ${newPrintCanvasHeight} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`);
+  // want to https://p5js.org/reference/#/p5/round NOT int(), as it always rounds down
+  console.log(`About to create a new printCanvas of ${round(newPrintCanvasWidth)} pixels wide by ${round(newPrintCanvasHeight)} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`);
 
-  let scaleFactor = 1000;
-
-  newPrintCanvasWidth /= scaleFactor; //scale down by scaleFactor
-  newPrintCanvasHeight /= scaleFactor;
-
-  console.log(`Scaled down by ${scaleFactor} to a new printCanvas of ${int(newPrintCanvasWidth)} pixels wide by ${int(newPrintCanvasHeight)} pixels high, paperChoice is ${paperChoice} and dpi is ${dpi}.`);
-
-  printCanvas = createGraphics(int(newPrintCanvasWidth), int(newPrintCanvasHeight));
+  printCanvas = createGraphics(round(newPrintCanvasWidth), round(newPrintCanvasHeight));
   printCanvas.pixelDensity(1); //https://p5js.org/reference/#/p5/pixelDensity
 }
 
