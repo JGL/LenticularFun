@@ -99,7 +99,8 @@ function draw() {
     // let lpi = 20; //hard coding 20 lpi at the moment
     // one inch is 25.4mm see https://en.wikipedia.org/wiki/Inch
     let startFrame = 0;
-    let totalFrames = gifP5ImageFromImgFileFromDrop.numFrames();
+    // let totalFrames = gifP5ImageFromImgFileFromDrop.numFrames();
+    let totalFrames = 2; // 11/9/2020 trying two frames input
 
     let numberOfPixelsInGif = gifFrameWidth; //split it into every pixel of the image, max result
     let gifFramePixelX = 0;
@@ -115,16 +116,12 @@ function draw() {
 
     let counterForCanvasStartPosition = 0;
     for (
-      let currentFrame = startFrame;
-      currentFrame < totalFrames;
-      currentFrame++
+      let currentFrame = startFrame; currentFrame < totalFrames; currentFrame++
     ) {
       gifP5ImageFromImgFileFromDrop.setFrame(currentFrame);
 
       for (
-        let currentGifPixelIndex = 0;
-        currentGifPixelIndex < numberOfPixelsInGif;
-        currentGifPixelIndex++
+        let currentGifPixelIndex = 0; currentGifPixelIndex < numberOfPixelsInGif; currentGifPixelIndex++
       ) {
         //https://p5js.org/reference/#/p5.Image/copy
         //copy(srcImage, sx, sy, sw, sh, dx, dy, dw, dh)
@@ -147,20 +144,6 @@ function draw() {
       counterForCanvasStartPosition++; //move along with where we are placing content on the canvas
       canvasX = counterForCanvasStartPosition * canvasScaledFrameWidth;
     }
-
-    // for (let i = 0; i < gifP5ImageFromImgFileFromDrop.numFrames(); i++) {
-    //   gifP5ImageFromImgFileFromDrop.setFrame(i);
-    //   printCanvas.image(gifP5ImageFromImgFileFromDrop, currentFrameTopLeftX, currentFrameTopLeftY, currentFrameWidth, currentFrameHeight);
-    //   //add the width to the x position to keep moving right
-    //   currentFrameTopLeftX += currentFrameWidth;
-
-    //   if ((currentFrameTopLeftX + currentFrameWidth) > printCanvas.width) {
-    //     //if the next draw would overlap the edge of the canvas, then rest the currentFrameTopLeftX to 0
-    //     currentFrameTopLeftX = 0;
-    //     //and increment the currentFrameTopLeftY by currentFrameHeight
-    //     currentFrameTopLeftY += currentFrameHeight;
-    //   }
-    // }
 
     //https://p5js.org/reference/#/p5/createGraphics
     image(printCanvas, 0, 0, windowWidth, windowHeight);
