@@ -12,8 +12,10 @@ let paperChoiceSelect; //the kind (a3 or a4) and orientation (portrait or landsc
 let dpiSelect; //the dpi of the printer
 let gifFileInput; //the DOM element that allows you to load in a gif
 let saveButton; //the button that is enabled when the interlacing has occurred
-// let numberOfFramesSlider; //hardcoded frames for now
-let lpiSelect; // the lpi of the lenticular sheet - hard coded for now...
+let lpiSelect; // the lpi of the lenticular sheet
+
+let numberOfFramesSelect; //how many frames should I use for the lenticular image? This is dependent on dpi and lpi
+let startFrameSlider; //which frame should I start with for the lenticular image? TODO: add an option to skip frames? Or is this better to do in the editing of gifs
 
 let printCanvas; // the canvas of the printable object see https://p5js.org/reference/#/p5/createGraphics
 
@@ -22,6 +24,84 @@ let gifP5ImageFromImgFileFromFileInput; //the p5.image that is created from the 
 
 // one inch is 25.4mm see https://en.wikipedia.org/wiki/Inch
 const MMPERINCH = 25.4;
+
+let filenameWithoutExtension;
+
+function createFileGUIElements() {
+  //https://p5js.org/reference/#/p5/createFileInput
+  gifFileInput = createFileInput(handleFileInput);
+
+  saveButton = createButton("Save Lenticular Image");
+  saveButton.mousePressed(saveLenticularImage);
+  saveButton.hide(); // only show it when there is a file to save
+}
+
+function removeNonFileDOMGUIElements() {
+  if (paperChoiceSelect && lpiSelect && numberOfFramesSelect && startFrameSlider) {
+    //https://p5js.org/reference/#/p5.Element/remove
+    paperChoiceSelect.remove();
+    //used to be GUI element, no longer
+    // dpiSelect.remove();
+    lpiSelect.remove();
+    numberOfFramesSelect.remove();
+    startFrameSlider.remove();
+  } else {
+    console.log("Trying to remove elements that haven't been created, in removeNonFileDOMGUIElements, this should happen precisely once per session.");
+  }
+
+}
+
+function createNonFileDOMGUIElements() {
+  if (gifP5ImageFromImgFileFromFileInput &&
+    gifP5ImageFromImgFileFromFileInput.width > 1) {
+    //then we have a p5.image file to start using 
+
+    //https://p5js.org/reference/#/p5/createSelect
+    paperChoiceSelect = createSelect();
+    paperChoiceSelect.option("A4_Portrait");
+    paperChoiceSelect.option("A4_Landscape");
+    // only A4 options for now
+    // paperChoiceSelect.option("A3_Portrait");
+    // paperChoiceSelect.option("A3_Landscape");
+    paperChoiceSelect.selected("A4_Portrait");
+    paperChoiceSelect.changed(createPrintCanvas);
+
+    let paperChoiceLabel = createP('Choose the paper orientation: ');
+    paperChoiceLabel.child(paperChoiceSelect);
+
+    //https://p5js.org/reference/#/p5/createSelect
+    // only working at 600 dpi now
+    // dpiSelect = createSelect();
+    // dpiSelect.option("300_dpi");
+    // dpiSelect.option("600_dpi");
+    // dpiSelect.selected("600_dpi");
+    // dpiSelect.changed(createPrintCanvas);
+    // dpiSelect.hide();
+
+    let totalNumberOfFramesInGIF = gifP5ImageFromImgFileFromFileInput.numFrames();
+    //https://p5js.org/reference/#/p5/createSlider - createSlider(min, max, [value], [step])
+    startFrameSlider = createSlider(0, totalNumberOfFramesInGIF - 1, 0, 1);
+    startFrameSlider.changed(createLenticular);
+
+    let startFramesLabel = createP('Choose your starting frame: ');
+    startFramesLabel.child(startFrameSlider);
+
+    //https://p5js.org/reference/#/p5/createSelect
+    lpiSelect = createSelect();
+    lpiSelect.option("20_lpi");
+    lpiSelect.option("40_lpi");
+    lpiSelect.selected("20_lpi");
+    lpiSelect.changed(lpiChanged);
+
+    let lpiLabel = createP('Choose LPI: ');
+    lpiLabel.child(lpiSelect);
+
+    lpiChanged(); //work out the right values to put into the numberOfFramesSelect GUI element and create it
+  } else {
+    //https://developer.mozilla.org/en-US/docs/Web/API/Console/error
+    console.error("Trying to make a lpi selector and number of frames slider and start frames slider for a gif that hasn't been converted into a p5.image or has a width < 1 pixels");
+  }
+}
 
 function setup() {
   pixelDensity(1); //https://p5js.org/reference/#/p5/pixelDensity
@@ -35,49 +115,19 @@ function setup() {
   /* via https://github.com/CodingTrain/website/blob/master/Q_and_A/Q_6_p5_background/sketch.js and https://www.youtube.com/watch?v=OIfEHD3KqCg */
   //https://github.com/processing/p5.js/wiki/Beyond-the-canvas
 
-  //https://p5js.org/reference/#/p5/createSelect
-  paperChoiceSelect = createSelect();
-  paperChoiceSelect.option("A4_Portrait");
-  paperChoiceSelect.option("A4_Landscape");
-  paperChoiceSelect.option("A3_Portrait");
-  paperChoiceSelect.option("A3_Landscape");
-  paperChoiceSelect.selected("A4_Portrait");
-  paperChoiceSelect.changed(createPrintCanvas);
-  paperChoiceSelect.hide();
+  dpiSelect = "600_dpi"; //used to be a GUI element, now it's locked to 600 dpi
 
-  //https://p5js.org/reference/#/p5/createSelect
-  dpiSelect = createSelect();
-  dpiSelect.option("300_dpi");
-  dpiSelect.option("600_dpi");
-  dpiSelect.selected("600_dpi");
-  dpiSelect.changed(createPrintCanvas);
-  dpiSelect.hide();
-
-  //https://p5js.org/reference/#/p5/createFileInput
-  gifFileInput = createFileInput(handleFileInput);
-
-  // //https://p5js.org/reference/#/p5/createSlider - createSlider(min, max, [value], [step])
-  // numberOfFramesSlider = createSlider(2, 8, 2, 1);
-  // numberOfFramesSlider.changed(handleSliderChange);
-
-  //https://p5js.org/reference/#/p5/createSelect
-  lpiSelect = createSelect();
-  lpiSelect.option("20_lpi");
-  lpiSelect.option("40_lpi");
-  lpiSelect.selected("20_lpi");
-  lpiSelect.changed(createLenticular);
-  lpiSelect.hide(); // for now
-
-  saveButton = createButton("Save Lenticular Image");
-  saveButton.mousePressed(saveLenticularImage);
-  saveButton.hide(); // only show it when there is a file to save
-
-  //make the canvas right away
-  createPrintCanvas();
+  //make only the File GUI elements, saving the others for when a file has been created
+  createFileGUIElements();
+  filenameWithoutExtension = "noFileLoadedYet";
 }
 
 function draw() {
-  image(printCanvas, 0, 0, width, height);
+  if (printCanvas) {
+    image(printCanvas, 0, 0, width, height);
+  }
+
+
 }
 
 // check for keyboard events
@@ -97,18 +147,27 @@ function saveLenticularImage() {
     gifP5ImageFromImgFileFromFileInput.width > 1) {
     //thanks https://momentjs.com/
 
-    let dpi = dpiSelect.value();
+    //let dpi = dpiSelect.value(); used to be a GUI element that you could choice the DPI that you were outputting to, no longer
+    let dpi = dpiSelect;
     let paperChoice = paperChoiceSelect.value();
     let lpi = lpiSelect.value();
+    let selectedNumberOfFramesSelect = numberOfFramesSelect.value();
+    let startFrame = startFrameSlider.value();
 
     let niceFileName =
       moment().format("YYYY_MM_DD_HH_mm_ss") +
+      "_" +
+      filenameWithoutExtension +
       "_" +
       paperChoice +
       "_" +
       dpi +
       "_" +
       lpi +
+      "_" +
+      selectedNumberOfFramesSelect +
+      "_startFrame_" +
+      startFrame +
       "_.png";
     save(printCanvas, niceFileName);
   }
@@ -150,8 +209,8 @@ function createPrintCanvas() {
   var newPrintCanvasHeight = 100;
   var newPixelsPerMM = 100;
 
-  let dpi = dpiSelect.value();
-  let paperChoice = paperChoiceSelect.value();
+  //let dpi = dpiSelect.value(); used to be a GUI element that you could choice the DPI that you were outputting to, no longer
+  let dpi = dpiSelect;
 
   //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
   switch (dpi) {
@@ -164,8 +223,10 @@ function createPrintCanvas() {
       break;
     default:
       //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-      console.log(`Unknown dpi ${dpi} in createPrintCanvas.`);
+      console.error(`Unknown dpi ${dpi} in createPrintCanvas.`);
   }
+
+  let paperChoice = paperChoiceSelect.value();
 
   //https://en.wikipedia.org/wiki/Paper_size#A_series
   switch (paperChoice) {
@@ -190,7 +251,7 @@ function createPrintCanvas() {
       newPrintCanvasHeight = 297 * newPixelsPerMM;
       break;
     default:
-      console.log(`Unknown paperChoice ${paperChoice} in createPrintCanvas.`);
+      console.error(`Unknown paperChoice ${paperChoice} in createPrintCanvas.`);
   }
 
   // want to https://p5js.org/reference/#/p5/round NOT int(), as it always rounds down
@@ -216,8 +277,11 @@ function handleFileInput(file) {
       successImgToImage,
       failImgToImage
     );
+
+    //https://stackoverflow.com/questions/4250364/how-to-trim-a-file-extension-from-a-string-in-javascript
+    filenameWithoutExtension = file.name.split('.').slice(0, -1).join('.');
   } else {
-    console.log("Non animated gif image file attempted failed to load");
+    console.error("Non animated gif image file attempted failed to load");
     imgFileFromFileInput = null;
   }
 }
@@ -225,12 +289,20 @@ function handleFileInput(file) {
 
 function successImgToImage() {
   console.log("Success img to p5.image!");
-  saveButton.show();
+  //remove non file dom GUI elements
+  removeNonFileDOMGUIElements();
+  //create non file dom GUI elements
+  createNonFileDOMGUIElements();
+  // make the canvas
+  createPrintCanvas();
+  //render the new lencticular image
   createLenticular();
+  //display the save button as you can save your lenticular file out now
+  saveButton.show();
 }
 
 function failImgToImage() {
-  console.log("Fail img to p5.image!");
+  console.error("Fail img to p5.image!");
 }
 
 function createLenticular() {
@@ -244,9 +316,32 @@ function createLenticular() {
   let gifFrameWidth = gifP5ImageFromImgFileFromFileInput.width;
   let gifFrameHeight = gifP5ImageFromImgFileFromFileInput.height;
 
-  let startFrame = 0;
-  // let totalFrames = gifP5ImageFromImgFileFromFileInput.numFrames();
-  let totalFrames = 2; // 11/9/2020 trying two frames input
+  let startFrame = startFrameSlider.value();
+
+  let selectedNumberOfFramesSelect = numberOfFramesSelect.value();
+  let numberOfFramesToUse = 3; //3 is the default as it works for both 20 and 40 lpi at 600 dpi
+
+  //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
+  switch (selectedNumberOfFramesSelect) {
+    case "2_frames":
+      numberOfFramesToUse = 2;
+      break;
+    case "3_frames":
+      numberOfFramesToUse = 3;
+      break;
+    case "5_frames":
+      numberOfFramesToUse = 5;
+      break;
+    case "6_frames":
+      numberOfFramesToUse = 6;
+      break;
+    case "10_frames":
+      numberOfFramesToUse = 10;
+      break;
+    default:
+      //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+      console.error(`Unknown number of frames to use ${selectedNumberOfFramesSelect} in createLenticular.`);
+  }
 
   let gifFramePixelX = 0;
   let gifFramePixelY = 0;
@@ -255,29 +350,42 @@ function createLenticular() {
   let canvasX = 0;
   let canvasY = 0;
 
-  //we are working at 600 dpi and 20 lpi
-  // 1/20 inch is one line
-  // 1/600 inch is one pixel
-  // Therefore 30 pixels per lenticule
-  // Therefore 30 frames maximum
-  // one frame, 30 pixels each
-  // or two frames 15 pixels each
-  // or three frames 10 pixels each
-  // or five frames, 6 pixels each
-  // or six frames, 5 pixels each
-  // or 10 frames, 3 pixels each
-  // or 15 frames, 2 pixels each
-  // or 30 frames, 1 pixel Each
-  // so as we have two frames, we are working at 15 pixels width for each frame
-  let canvasScaledGifPixelWidth = 30;
-  let canvasScaledFrameWidth = canvasScaledGifPixelWidth / totalFrames; //TODO: change to be affected by LPI
-  let canvasScaledFrameHeight = printCanvas.height; //TODO: change to be affected by LPI
+  let canvasScaledGifPixelWidth;
+  let lpi = lpiSelect.value();
 
+  //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
+  switch (lpi) {
+    case "20_lpi":
+      // working at 600 dpi and 20 lpi
+      // 1/20 inch is one lenticule
+      // 1/600 inch is one pixel
+      // Therefore 30 pixels per lenticule - (600/20)
+      canvasScaledGifPixelWidth = 30;
+      break;
+    case "40_lpi":
+      // working at 600 dpi and 40 lpi
+      // 1/40 inch is one lenticule
+      // 1/600 inch is one pixel
+      // Therefore 15 pixels per lenticule - (600/40)
+      canvasScaledGifPixelWidth = 15;
+      break;
+    default:
+      //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+      console.error(`Unknown lpi ${lpi} in createGIFDependentGUIElements.`);
+  }
+
+  let totalNumberOfFramesInGIF = gifP5ImageFromImgFileFromFileInput.numFrames();
+  let canvasScaledFrameWidth = canvasScaledGifPixelWidth / numberOfFramesToUse; //TODO: round this?
+  let canvasScaledFrameHeight = printCanvas.height;
   let counterForCanvasStartPosition = 0;
+  let counterForFramesUsed = 0;
   for (
-    let currentFrame = startFrame; currentFrame < totalFrames; currentFrame++
+    let currentFrame = startFrame; counterForFramesUsed < numberOfFramesToUse; currentFrame++
   ) {
-    gifP5ImageFromImgFileFromFileInput.setFrame(currentFrame);
+    //the user may want to use more frames of animation than there are, so use modulo to select the correct current frame
+    //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Remainder
+    let theFrameToUse = currentFrame % totalNumberOfFramesInGIF;
+    gifP5ImageFromImgFileFromFileInput.setFrame(theFrameToUse);
 
     for (
       let currentGifPixelIndex = 0; currentGifPixelIndex < gifFrameWidth; currentGifPixelIndex++
@@ -302,9 +410,61 @@ function createLenticular() {
     gifFramePixelX = 0; //reset back to 0 to start from the left again
     counterForCanvasStartPosition++; //move along with where we are placing content on the canvas
     canvasX = counterForCanvasStartPosition * canvasScaledFrameWidth;
+    counterForFramesUsed++; //keep track of the number of frames we've used to make lenticular content with 
   }
 }
 
-// function handleSliderChange() {
-//   console.log(`Slider slide to ${numberOfFramesSlider.value()}`);
-// }
+function lpiChanged() {
+  let lpi = lpiSelect.value();
+
+  if (numberOfFramesSelect) {
+    //if it exists, remove it
+    //https://p5js.org/reference/#/p5.Element/remove
+    numberOfFramesSelect.remove();
+  }
+
+  //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
+  // lpi selection dictates the number of frames we could possibly use
+  switch (lpi) {
+    case "20_lpi":
+      // working at 600 dpi and 20 lpi
+      // 1/20 inch is one lenticule
+      // 1/600 inch is one pixel
+      // Therefore 30 pixels per lenticule - (600/20)
+      // splitting 30 pixels into 2 frames gives 15 pixels for each frame
+      // splitting 30 pixels into 3 frames gives 10 pixels for each frame
+      // splitting 30 pixels into 5 frames gives 6 pixels for each frame
+      // splitting 30 pixels into 6 frames gives 5 pixels for each frame
+      // splitting 30 pixels into 10 frames gives 3 pixels for each frame
+      //https://p5js.org/reference/#/p5/createSelect
+      numberOfFramesSelect = createSelect();
+      numberOfFramesSelect.option("2_frames");
+      numberOfFramesSelect.option("3_frames");
+      numberOfFramesSelect.option("5_frames");
+      numberOfFramesSelect.option("6_frames");
+      numberOfFramesSelect.option("10_frames");
+      numberOfFramesSelect.selected("2_frames");
+      numberOfFramesSelect.changed(createLenticular);
+      break;
+    case "40_lpi":
+      // working at 600 dpi and 40 lpi
+      // 1/40 inch is one lenticule
+      // 1/600 inch is one pixel
+      // Therefore 15 pixels per lenticule - (600/40)
+      // splitting 15 pixels into 3 frames gives 5 pixels for each frame
+      // splitting 15 pixels into 5 frames gives 3 pixels for each frame
+      //https://p5js.org/reference/#/p5/createSelect
+      numberOfFramesSelect = createSelect();
+      numberOfFramesSelect.option("3_frames");
+      numberOfFramesSelect.option("5_frames");
+      numberOfFramesSelect.selected("3_frames");
+      numberOfFramesSelect.changed(createLenticular);
+      break;
+    default:
+      //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+      console.error(`Unknown lpi ${lpi} in lpiChanged().`);
+  }
+
+  let numberOfFramesLabel = createP('Choose number of frames to use in lenticular: ');
+  numberOfFramesLabel.child(numberOfFramesSelect);
+}
