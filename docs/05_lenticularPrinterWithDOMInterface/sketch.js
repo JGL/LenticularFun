@@ -418,9 +418,9 @@ function lpiChanged() {
   let lpi = lpiSelect.value();
 
   if (numberOfFramesSelect) {
-    //if it exists, remove it
+    //if it exists, remove it, and it's label, which is it's parent
     //https://p5js.org/reference/#/p5.Element/remove
-    numberOfFramesSelect.remove();
+    numberOfFramesSelect.parent().remove();
   }
 
   //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
@@ -467,4 +467,10 @@ function lpiChanged() {
 
   let numberOfFramesLabel = createP('Choose number of frames to use in lenticular: ');
   numberOfFramesLabel.child(numberOfFramesSelect);
+
+  if (printCanvas) {
+    createLenticular();
+  } else {
+    //we are at initialisation step and createLenticular will be called later
+  }
 }
