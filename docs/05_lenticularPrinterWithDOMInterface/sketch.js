@@ -143,8 +143,6 @@ function draw() {
   if (printCanvas) {
     image(printCanvas, 0, 0, width, height);
   }
-
-
 }
 
 // check for keyboard events
@@ -159,7 +157,9 @@ function keyPressed() {
   }
 }
 
-function saveLenticularImage() {
+function getNiceFileName() {
+  let niceFileName = "noImageLoaded.iff";
+
   if (gifP5ImageFromImgFileFromFileInput &&
     gifP5ImageFromImgFileFromFileInput.width > 1) {
     //thanks https://momentjs.com/
@@ -172,7 +172,7 @@ function saveLenticularImage() {
     let startFrame = startFrameSlider.value();
     let numberOfFramesToSkip = numberOfSkipsSelect.value();
 
-    let niceFileName =
+    niceFileName =
       moment().format("YYYY_MM_DD_HH_mm_ss") +
       "_" +
       filenameWithoutExtension +
@@ -189,6 +189,15 @@ function saveLenticularImage() {
       "_" +
       numberOfFramesToSkip +
       "_.png";
+  }
+
+  return niceFileName;
+}
+
+function saveLenticularImage() {
+  if (printCanvas) {
+    let niceFileName = getNiceFileName();
+
     save(printCanvas, niceFileName);
   }
 }
@@ -325,19 +334,7 @@ function failImgToImage() {
   console.error("Fail img to p5.image!");
 }
 
-function createLenticular() {
-  printCanvas.clear();
-  //https://p5js.org/reference/#/p5/background
-  printCanvas.background(255); //clear to white background
-
-  gifP5ImageFromImgFileFromFileInput.pause();
-
-  //safe to assume that all the frames of animation have the same width and height
-  let gifFrameWidth = gifP5ImageFromImgFileFromFileInput.width;
-  let gifFrameHeight = gifP5ImageFromImgFileFromFileInput.height;
-
-  let startFrame = startFrameSlider.value();
-
+function getNumberOfFramesToUse() {
   let selectedNumberOfFramesSelect = numberOfFramesSelect.value();
   let numberOfFramesToUse = 3; //3 is the default as it works for both 20 and 40 lpi at 600 dpi
 
@@ -360,9 +357,13 @@ function createLenticular() {
       break;
     default:
       //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-      console.error(`Unknown number of frames to use ${selectedNumberOfFramesSelect} in createLenticular.`);
+      console.error(`Unknown number of frames to use ${selectedNumberOfFramesSelect} in function getNumberOfFramesToUse().`);
   }
 
+  return numberOfFramesToUse;
+}
+
+function getNumberOfFramesToSkip() {
   let selectedNumberOfFramesToSkipSelect = numberOfSkipsSelect.value();
   let numberOfFramesToSkip = 0; //0 is the default, no skipping
 
@@ -388,18 +389,15 @@ function createLenticular() {
       break;
     default:
       //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-      console.error(`Unknown number of frames to skip ${selectedNumberOfFramesToSkipSelect} in createLenticular.`);
+      console.error(`Unknown number of frames to skip ${selectedNumberOfFramesToSkipSelect} in getNumberOfFramesToSkip().`);
   }
 
-  let gifFramePixelX = 0;
-  let gifFramePixelY = 0;
-  let gifFramePixelWidth = 1; //1 pixel wide
-  let gifFramePixelHeight = gifFrameHeight;
-  let canvasX = 0;
-  let canvasY = 0;
+  return numberOfFramesToSkip;
+}
 
-  let canvasScaledGifPixelWidth;
+function getCanvasScaleGifPixelWidth() {
   let lpi = lpiSelect.value();
+  let canvasScaledGifPixelWidth = 30;
 
   //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
   switch (lpi) {
@@ -419,14 +417,41 @@ function createLenticular() {
       break;
     default:
       //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-      console.error(`Unknown lpi ${lpi} in createGIFDependentGUIElements.`);
+      console.error(`Unknown lpi ${lpi} in getCanvasScaleGifPixelWidth().`);
   }
 
+  return canvasScaledGifPixelWidth;
+}
+
+function createLenticular() {
+  printCanvas.clear();
+  //https://p5js.org/reference/#/p5/background
+  printCanvas.background(255); //clear to white background
+
+  gifP5ImageFromImgFileFromFileInput.pause();
+
+  let startFrame = startFrameSlider.value();
   let totalNumberOfFramesInGIF = gifP5ImageFromImgFileFromFileInput.numFrames();
+  let numberOfFramesToUse = getNumberOfFramesToUse();
+  let numberOfFramesToSkip = getNumberOfFramesToSkip();
+
+  //safe to assume that all the frames of animation have the same width and height
+  let gifFrameWidth = gifP5ImageFromImgFileFromFileInput.width;
+  let gifFrameHeight = gifP5ImageFromImgFileFromFileInput.height;
+  let gifFramePixelX = 0; //pixel source position x value 
+  let gifFramePixelY = 0;
+  let gifFramePixelWidth = 1; //1 pixel wide
+  let gifFramePixelHeight = gifFrameHeight;
+  let canvasX = 0; //where we are currently drawing to in the canvas
+  let canvasY = 0;
+
+  let canvasScaledGifPixelWidth = getCanvasScaleGifPixelWidth();
   let canvasScaledFrameWidth = canvasScaledGifPixelWidth / numberOfFramesToUse; //TODO: round this?
   let canvasScaledFrameHeight = printCanvas.height;
+
   let counterForCanvasStartPosition = 0;
   let counterForFramesUsed = 0;
+
   for (
     let currentFrame = startFrame; counterForFramesUsed < numberOfFramesToUse; currentFrame += (numberOfFramesToSkip + 1) //+1 as we always want to move 1 frame on
   ) {
@@ -460,6 +485,17 @@ function createLenticular() {
     canvasX = counterForCanvasStartPosition * canvasScaledFrameWidth;
     counterForFramesUsed++; //keep track of the number of frames we've used to make lenticular content with 
   }
+
+  //finally stamp the filename on top, in red
+  let filenameStamp = getNiceFileName();
+  //https://p5js.org/reference/#/p5/fill
+  printCanvas.textSize(420 / 5);
+  let pixelPadding = 42; //10 pixels on width and height
+  //https://p5js.org/reference/#/p5/textAscent and https://p5js.org/reference/#/p5/textDescent
+  let heightOfText = printCanvas.textAscent() + printCanvas.textDescent() + pixelPadding;
+  printCanvas.fill('red');
+  //https://p5js.org/reference/#/p5/text
+  printCanvas.text(filenameStamp, 0, heightOfText, printCanvas.width, printCanvas.height);
 }
 
 function lpiChanged() {
