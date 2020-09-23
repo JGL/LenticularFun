@@ -64,7 +64,7 @@ function createNonFileDOMGUIElements() {
     // paperChoiceSelect.option("A3_Portrait");
     // paperChoiceSelect.option("A3_Landscape");
     paperChoiceSelect.selected("A4_Portrait");
-    paperChoiceSelect.changed(createPrintCanvas);
+    paperChoiceSelect.changed(createPrintCanvasAndReRenderLenticular);
 
     let paperChoiceLabel = createP('Choose the paper orientation: ');
     paperChoiceLabel.child(paperChoiceSelect);
@@ -473,4 +473,9 @@ function lpiChanged() {
   } else {
     //we are at initialisation step and createLenticular will be called later
   }
+}
+
+function createPrintCanvasAndReRenderLenticular() {
+  createPrintCanvas();
+  createLenticular();
 }
