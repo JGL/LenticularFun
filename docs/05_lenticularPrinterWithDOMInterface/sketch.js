@@ -13,12 +13,12 @@ let dpiSelect; //the dpi of the printer
 let gifFileInput; //the DOM element that allows you to load in a gif
 let saveButton; //the button that is enabled when the interlacing has occurred
 let lpiSelect; // the lpi of the lenticular sheet
-
 let numberOfFramesSelect; //how many frames should I use for the lenticular image? This is dependent on dpi and lpi
-let startFrameSlider; //which frame should I start with for the lenticular image? TODO: add an option to skip frames? Or is this better to do in the editing of gifs
+let startFrameSlider; //which frame should I start with for the lenticular image?
+let numberOfSkipsSelect; //how many frames should I skip between frames that I use to generate the animation
 
+// Input and output files
 let printCanvas; // the canvas of the printable object see https://p5js.org/reference/#/p5/createGraphics
-
 let imgFileFromFileInput; //the dom image that is created when someone selects a file to upload
 let gifP5ImageFromImgFileFromFileInput; //the p5.image that is created from the imgFileFromDrop dom image, it needs to be a p5.image so I can access the frames of the animated gif
 
@@ -37,14 +37,20 @@ function createFileGUIElements() {
 }
 
 function removeNonFileDOMGUIElements() {
-  if (paperChoiceSelect && lpiSelect && numberOfFramesSelect && startFrameSlider) {
+  if (paperChoiceSelect && lpiSelect && numberOfFramesSelect && startFrameSlider && numberOfSkipsSelect) {
     //https://p5js.org/reference/#/p5.Element/remove
-    paperChoiceSelect.remove();
+    paperChoiceSelect.parent().remove(); // the label is the parent
+    // paperChoiceSelect.remove();
     //used to be GUI element, no longer
     // dpiSelect.remove();
-    lpiSelect.remove();
-    numberOfFramesSelect.remove();
-    startFrameSlider.remove();
+    lpiSelect.parent().remove();
+    // lpiSelect.remove();
+    numberOfFramesSelect.parent().remove();
+    // numberOfFramesSelect.remove();
+    startFrameSlider.parent().remove();
+    // startFrameSlider.remove();
+    numberOfSkipsSelect.parent().remove();
+    // numberOfSkipsSelect.remove();
   } else {
     console.log("Trying to remove elements that haven't been created, in removeNonFileDOMGUIElements, this should happen precisely once per session.");
   }
@@ -65,7 +71,6 @@ function createNonFileDOMGUIElements() {
     // paperChoiceSelect.option("A3_Landscape");
     paperChoiceSelect.selected("A4_Portrait");
     paperChoiceSelect.changed(createPrintCanvasAndReRenderLenticular);
-
     let paperChoiceLabel = createP('Choose the paper orientation: ');
     paperChoiceLabel.child(paperChoiceSelect);
 
@@ -82,9 +87,21 @@ function createNonFileDOMGUIElements() {
     //https://p5js.org/reference/#/p5/createSlider - createSlider(min, max, [value], [step])
     startFrameSlider = createSlider(0, totalNumberOfFramesInGIF - 1, 0, 1);
     startFrameSlider.changed(createLenticular);
-
     let startFramesLabel = createP('Choose your starting frame: ');
     startFramesLabel.child(startFrameSlider);
+
+    //https://p5js.org/reference/#/p5/createSelect
+    numberOfSkipsSelect = createSelect();
+    numberOfSkipsSelect.option("skipping_0_frames");
+    numberOfSkipsSelect.option("skipping_1_frame");
+    numberOfSkipsSelect.option("skipping_2_frames");
+    numberOfSkipsSelect.option("skipping_3_frames");
+    numberOfSkipsSelect.option("skipping_4_frames");
+    numberOfSkipsSelect.option("skipping_5_frames");
+    numberOfSkipsSelect.selected("skipping_0_frames");
+    numberOfSkipsSelect.changed(createLenticular);
+    let numberOfSkipsLabel = createP('Choose the number of frames you want to skip between frames: ');
+    numberOfSkipsLabel.child(numberOfSkipsSelect);
 
     //https://p5js.org/reference/#/p5/createSelect
     lpiSelect = createSelect();
@@ -343,6 +360,34 @@ function createLenticular() {
       console.error(`Unknown number of frames to use ${selectedNumberOfFramesSelect} in createLenticular.`);
   }
 
+  let selectedNumberOfFramesToSkipSelect = numberOfSkipsSelect.value();
+  let numberOfFramesToSkip = 0; //0 is the default, no skipping
+
+  //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/switch
+  switch (selectedNumberOfFramesToSkipSelect) {
+    case "skipping_0_frames":
+      numberOfFramesToSkip = 0;
+      break;
+    case "skipping_1_frame":
+      numberOfFramesToSkip = 1;
+      break;
+    case "skipping_2_frames":
+      numberOfFramesToSkip = 2;
+      break;
+    case "skipping_3_frames":
+      numberOfFramesToSkip = 3;
+      break;
+    case "skipping_4_frames":
+      numberOfFramesToSkip = 4;
+      break;
+    case "skipping_5_frames":
+      numberOfFramesToSkip = 5;
+      break;
+    default:
+      //printing variables using ES6 https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+      console.error(`Unknown number of frames to skip ${selectedNumberOfFramesToSkipSelect} in createLenticular.`);
+  }
+
   let gifFramePixelX = 0;
   let gifFramePixelY = 0;
   let gifFramePixelWidth = 1; //1 pixel wide
@@ -380,7 +425,7 @@ function createLenticular() {
   let counterForCanvasStartPosition = 0;
   let counterForFramesUsed = 0;
   for (
-    let currentFrame = startFrame; counterForFramesUsed < numberOfFramesToUse; currentFrame++
+    let currentFrame = startFrame; counterForFramesUsed < numberOfFramesToUse; currentFrame += (numberOfFramesToSkip + 1) //+1 as we always want to move 1 frame on
   ) {
     //the user may want to use more frames of animation than there are, so use modulo to select the correct current frame
     //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Remainder
