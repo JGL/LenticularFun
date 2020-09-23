@@ -170,6 +170,7 @@ function saveLenticularImage() {
     let lpi = lpiSelect.value();
     let selectedNumberOfFramesSelect = numberOfFramesSelect.value();
     let startFrame = startFrameSlider.value();
+    let numberOfFramesToSkip = numberOfSkipsSelect.value();
 
     let niceFileName =
       moment().format("YYYY_MM_DD_HH_mm_ss") +
@@ -185,6 +186,8 @@ function saveLenticularImage() {
       selectedNumberOfFramesSelect +
       "_startFrame_" +
       startFrame +
+      "_" +
+      numberOfFramesToSkip +
       "_.png";
     save(printCanvas, niceFileName);
   }
